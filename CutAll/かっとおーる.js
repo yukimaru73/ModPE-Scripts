@@ -15,6 +15,7 @@ const ScrollView = android.widget.ScrollView;
 const SeekBar = android.widget.SeekBar;
 const Switch = android.widget.Switch;
 const TextView = android.widget.TextView;
+const Thread = java.lang.Thread;
 const ToggleButton = android.widget.ToggleButton;
 const OnClickListener = android.view.View.OnClickListener;
 const OnLongClickListener = android.view.View.OnLongClickListener;
@@ -32,8 +33,7 @@ const GUIConst = {
 let blocks = {
 	searched: [],
 	log: [],
-	logForLeave: [],
-	leave: []
+	logForLeave: []
 };
 
 let Constants = {
@@ -101,36 +101,74 @@ function destroyBlock(x, y, z, s) {
 	clientMessage("Time(ms): " + (et - st));
 }
 
-function searchLeave(x,y,z,id,ddm){
+function searchLeave(x,y,z,id,ddm,type){
 	let lgt=blocks.logForLeave.length;
 	if(lgt===0) return;
-	ctx().runOnUiThread(
+	let arr=cloneArray(blocks.logForLeave);
+	new Thread(
 		function(){
 			try{
-				
+				switch(type){
+					case 0://oak
+						if(lgt</*Amount of log*/){
+							
+						}else{
+							
+						}
+					break;
+					
+					case 1://spruce
+						if(lgt</*Amount of log*/){
+							
+						}else{
+							
+						}
+					break;
+					case 2://birch
+						
+					break;
+					case 3://jungle
+						if(lgt</*Amount of log*/){
+							
+						}else{
+							
+						}
+					break;
+					case 4://accasia
+						
+					break;
+					case 5://bigoak
+						
+					break;
+					default:
+					
+					break;
+					}
+				}
+				destroyLeave(leaves);
 			}catch(e){
 				print(e);
 			}
 		}
-	);
+	).start();
 }
 
-function destroyLeave(){
-	let lgt=blocks.leave.length;
+function destroyLeave(leaves){
+	let lgt=leaves.length;
 	if(lgt===0) return;
-	ctx().runOnUiThread(
+	new Thread(
 		function(){
 			try{
-				for(let i=lgt;i--;){
-					let pos=blocks.leave[i];
-					Level.setTile(pos[0],pos[1],pos[2],0,0);
+				while(lgt>0){
+					let ctt=leaves[0];
+					Level.setTile(ctt[0],ctt[1],ctt[2],0,0);
+					leaves.shift();
 				}
-				blocks.leave.length=0;
 			}catch(e){
 				print(e);
 			}
 		}
-	);
+	).start();
 }
 
 function mathSaplingAndApple(cnt,fortuneLevel,isOak,isJungle){
@@ -142,7 +180,7 @@ function mathSaplingAndApple(cnt,fortuneLevel,isOak,isJungle){
 		if(isOak){
 			if(Constants.rand[0]<(1/(200-20*fortuneLevel))) damount[1]++;
 		}
-		Constants.rand.splice(0,1);
+		Constants.rand.shift();
 	}
 	return damount;
 }
@@ -178,11 +216,24 @@ function existsLoginArray(ctt, arr) {
 	
 }
 
+let getAbs=(int)=>{
+	return int<0?-int:int;
+}
+
 function checkArray(ctt, arr) {
 	for (let i = arr.length; i--;) {
 		if (arr[i] === ctt) return false;
 	}
 	return true;
+}
+
+function cloneArray(arr){
+	let ret=[];
+	for(let i=arr.length;i--;){
+		let ctt=arr[i];
+		Array.isArray(ctt)?ret.unshift(cloneArray(ctt)):ret.unshift(ctt);
+	}
+	return ret
 }
 
 function searchLog(x, y, z, id, ddm, pos) {
