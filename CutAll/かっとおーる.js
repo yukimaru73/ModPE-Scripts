@@ -10,43 +10,58 @@ const EditText = android.widget.EditText;
 const LayoutParams = android.view.ViewGroup.LayoutParams;
 const LinearLayout = android.widget.LinearLayout;
 const PopupWindow = android.widget.PopupWindow;
-const Runnable = java.lang.Runnable;
 const ScrollView = android.widget.ScrollView;
 const SeekBar = android.widget.SeekBar;
 const Switch = android.widget.Switch;
 const TextView = android.widget.TextView;
 const Thread = java.lang.Thread;
 const ToggleButton = android.widget.ToggleButton;
-const OnClickListener = android.view.View.OnClickListener;
-const OnLongClickListener = android.view.View.OnLongClickListener;
 const OnSeekBarChangeListener = android.widget.SeekBar.OnSeekBarChangeListener;
 
+const values={
+	"en_US":{
+		"CutAllOn":"CutAll ON",
+		"CutAllOff":"CutAll OFF",
+		"LogLimit":"Amount limit of log",
+		"LeafLimit":"Amount limit of leaf",
+		"CutAllLimitter":"Too many logs or leaves to destroy collectively",
+		"NotEnoughDurability":"More tool durability has been required for collective destroying"
+	},
+	"ja_JP":{
+		"CutAllOn":"CutAll ON",
+		"CutAllOff":"CutAll OFF",
+		"LogLimit":"原木の破壊最大量",
+		"LeafLimit":"原木の破壊最大量",
+		"CutAllLimitter":"木か葉の量が上限値を超えています",
+		"NotEnoughDurability":"耐久値不足のため一括破壊しませんでした"
+	}
+}
+
 const GUIConst = {
-	Height: ctx().getWindowManager().getDefaultDisplay().getHeight(),
-	Width: ctx().getWindowManager().getDefaultDisplay().getWidth(),
-	density: ctx().getResources().getDisplayMetrics().density,
-	DecorView: ctx().getWindow().getDecorView(),
-	WRAP_CONTENT: android.widget.RelativeLayout.LayoutParams.WRAP_CONTENT,
-	MATCH_PARENT: android.widget.RelativeLayout.LayoutParams.MATCH_PARENT
+	"Height": ctx().getWindowManager().getDefaultDisplay().getHeight(),
+	"Width": ctx().getWindowManager().getDefaultDisplay().getWidth(),
+	"density": ctx().getResources().getDisplayMetrics().density,
+	"DecorView": ctx().getWindow().getDecorView(),
+	"WRAP_CONTENT": android.widget.RelativeLayout.LayoutParams.WRAP_CONTENT,
+	"MATCH_PARENT": android.widget.RelativeLayout.LayoutParams.MATCH_PARENT
 };
 
 let blocks = {
-	searched: [],
-	log: [],
-	logForLeave: []
+	"searched": [],
+	"log": []
 };
 
 let Constants = {
-	logMax: 256,
-	leaveMax: 256,
-	axeid: [258, 271, 275, 279, 286],
-	logid: [17, 162],
-	fortune: {
+	"logMax": 256,
+	"leaveMax": 256,
+	"axeid": [258, 271, 275, 279, 286],
+	"logid": [17, 162],
+	"fortune": {
 		"normal": [1/20,1/16,1/12,1/10],
 		"jungle": [1/40,1/36,1/32,1/24],
 		"apple": [1/200,1/180,1/160,1/140]
 	},
-	rand: []
+	"rand": []
 }
 
 let ViewIDs = [];
@@ -62,13 +77,17 @@ function newLevel(hL) {
 }
 
 function leaveGame() {
-	GUI.ToggleButton.dismiss();
-	GUI.Menu.dismiss();
+	ctx().runOnUiThread(
+		function(){
+			GUI.ToggleButton.dismiss();
+			GUI.Menu.dismiss();
+		}
+	);
 }
 
 function destroyBlock(x, y, z, s) {
-	let st = new Date();
-	if(!findViewByID("ToggleButton").isChecked()) return;
+	//let st = new Date();
+	if(!findViewById("ToggleButton").isChecked()) return;
 	const iid = Player.getCarriedItem();
 	const bid = Level.getTile(x, y, z);
 	if (checkArray(iid, Constants.axeid)) return;
@@ -82,35 +101,67 @@ function destroyBlock(x, y, z, s) {
 	searchLog(x, y, z, bid, bdm % 4, 4);
 	let lgt = blocks.log.length;
 	if (lgt > 0) {
-		let cnt = lgt < Constants.logMax ? lgt : (clientMessage("CutAllリミッター作動"), Constants.logMax);
+		let cnt = lgt < Constants.logMax ? lgt : (clientMessage(getString("CutAllLimitter")), Constants.logMax);
 		if (iddm < cnt) {
-			clientMessage("耐久値不足のため一括破壊しませんでした");
+			clientMessage(getString("NotEnoughDurability"));
 			return;
 		}
-		clientMessage(lgt);
+		preventDefault();
+		//clientMessage(lgt);
 		Level.dropItem(x + 0.5, y, z + 0.5, 0.75, bid, cnt, bdm);
 		for (let i = cnt; i--;) {
 			let pos = blocks.log[i];
 			Level.setTile(pos[0], pos[1], pos[2], 0, 0);
 		}
 		blocks.log.length = 0;
-		blocks.searched.length=0;
 		setDefaultEnchantItem(ssid, iid, idm + cnt);
 	}
-	let et = new Date();
-	clientMessage("Time(ms): " + (et - st));
+	//let et = new Date();
+	//clientMessage("Time(ms): " + (et - st));
 }
 
-function searchLeave(x,y,z,id,ddm,type){
-	let lgt=blocks.logForLeave.length;
+function getString(key){
+	let lang=ModPE.getLanguage();
+	lang=values[lang]===undefined?"en_US":lang;
+	return values[lang][key]===undefined?null:values[lang][key];
+}
+
+function searchTypicalLeaf(logs,id,dmm){
+	let max=[null,0,null];
+	let leaves=[];
+	for(let i=logs.length;i--;){
+		let arr=logs[i];
+		if(arr[1]>max[1])max=arr;
+	}
+	let dx,dy,dz;
+	for(let i=-2;i<3;i++){
+		dx=max[0]+i;
+		for(let j=-2;j<2;j++){
+			dy=max[1]+j;
+			for(let k=-2;k<3;k++){
+				dz=max[2]+k;
+				if(i===0&&j===0&&k===0) continue;
+				if(Level.getTile(dx,dy,dz)!==id) continue;
+				if(Level.getData(dx,dy,dz)%4!==dmm) continue;
+				leaves.push([dx,dy,dz]);
+			}
+		}
+	}
+	return leaves;
+}
+
+
+
+function searchLeaf(x,y,z,id,ddm,type){
+	let lgt=blocks.log.length;
 	if(lgt===0) return;
-	let arr=cloneArray(blocks.logForLeave);
+	let arr=cloneArray(blocks.log);
 	new Thread(
 		function(){
 			try{
 				switch(type){
 					case 0://oak
-						if(lgt</*Amount of log*/){
+						if(lgt<7){
 							
 						}else{
 							
@@ -118,7 +169,7 @@ function searchLeave(x,y,z,id,ddm,type){
 					break;
 					
 					case 1://spruce
-						if(lgt</*Amount of log*/){
+						if(lgt<9){
 							
 						}else{
 							
@@ -128,7 +179,7 @@ function searchLeave(x,y,z,id,ddm,type){
 						
 					break;
 					case 3://jungle
-						if(lgt</*Amount of log*/){
+						if(lgt<13){
 							
 						}else{
 							
@@ -143,7 +194,6 @@ function searchLeave(x,y,z,id,ddm,type){
 					default:
 					
 					break;
-					}
 				}
 				destroyLeave(leaves);
 			}catch(e){
@@ -153,7 +203,7 @@ function searchLeave(x,y,z,id,ddm,type){
 	).start();
 }
 
-function destroyLeave(leaves){
+function destroyLeaf(leaves){
 	let lgt=leaves.length;
 	if(lgt===0) return;
 	new Thread(
@@ -238,7 +288,6 @@ function cloneArray(arr){
 
 function searchLog(x, y, z, id, ddm, pos) {
 	blocks.log.push([x,y,z]);
-	blocks.logForLeave.push([x,y,z]);
 	let dx, dy, dz, rpos, npos;
 	switch (pos) {
 		case 0:
@@ -582,7 +631,7 @@ function defineViewID(View, ID) {
 	});
 }
 
-function findViewByID(ID) {
+function findViewById(ID) {
 	for (let i=0;i<ViewIDs.length;i++){
 		let obj = ViewIDs[i];
 		if (obj.ID === ID) return obj.View;
@@ -610,11 +659,11 @@ let GUI = new function () {
 		this.View.setOnClickListener(
 			function (v) {
 				v.isChecked() ? (
-					clientMessage("CutAll ON"),
+					clientMessage(getString("CutAllOn")),
 					v.setChecked(true),
 					v.setTextColor(Color.GREEN)
 				) : (
-					clientMessage("CutAll OFF"),
+					clientMessage(getString("CutAllOff")),
 					v.setChecked(false),
 					v.setTextColor(Color.WHITE)
 				);
@@ -678,7 +727,7 @@ let GUI = new function () {
 								this.Child = new function () {
 									this.Title = new function () {
 										this.View = new TextView(ctx());
-										this.View.setText("原木の破壊最大量");
+										this.View.setText(getString("LogLimit"));
 									};
 									this.TextView = new function () {
 										this.View = new TextView(ctx());
@@ -692,7 +741,7 @@ let GUI = new function () {
 										this.View.setOnSeekBarChangeListener(new OnSeekBarChangeListener({
 											onProgressChanged: function (view, progress, fromUser) {
 												try{
-													findViewByID("LogMaxText").setText(String(progress));
+													findViewById("LogMaxText").setText(String(progress));
 													Constants.logMax = progress;
 												}catch(e){
 													print(e);
@@ -709,7 +758,7 @@ let GUI = new function () {
 								this.Child = new function () {
 									this.Title = new function () {
 										this.View = new TextView(ctx());
-										this.View.setText("葉ブロックの破壊最大量");
+										this.View.setText(getString("LeafLimit"));
 									};
 									this.TextView = new function () {
 										this.View = new TextView(ctx());
@@ -723,7 +772,7 @@ let GUI = new function () {
 										this.View.setOnSeekBarChangeListener(new OnSeekBarChangeListener({
 											onProgressChanged: function (view, progress, fromUser) {
 												try{
-													findViewByID("LeaveMaxText").setText(String(progress));
+													findViewById("LeaveMaxText").setText(String(progress));
 													Constants.leaveMax = progress;
 												}catch(e){
 													print(e);
