@@ -2,30 +2,30 @@
 //-- + Constants + --//
 
 const Constants = {
-	LOGMAX: 256, 
-	LEAFMAX: 256, 
-	AXEID: [258, 271, 275, 279, 286], 
-	LOGID: [17, 162], 
+	LOGMAX: 256,
+	LEAFMAX: 256,
+	AXEID: [258, 271, 275, 279, 286],
+	LOGID: [17, 162],
 	Probability: {
-		NORMAL: [1/20, 1/16, 1/12, 1/10], 
-		JUNGLE: [1/40, 1/36, 1/32, 1/24], 
+		NORMAL: [1/20, 1/16, 1/12, 1/10],
+		JUNGLE: [1/40, 1/36, 1/32, 1/24],
 		APPLE: [1/200, 1/180, 1/160, 1/120]
 	}
 }
 
 const values={
 	en_US:{
-		CutAllOn:"ON", 
-		CutAllOff:"OFF", 
-		NotEnoughDurability:"More tool durability has been required for destroying", 
-		LogLimit:"Amount limit of log", 
+		CutAllOn:"ON",
+		CutAllOff:"OFF",
+		NotEnoughDurability:"More tool durability has been required for destroying",
+		LogLimit:"Amount limit of log",
 		LeafLimit:"Amount limit of leaf"
-	}, 
+	},
 	ja_JP:{
-		CutAllOn:"ON", 
-		CutAllOff:"OFF", 
-		NotEnoughDurability:"耐久値不足のため一括破壊しませんでした", 
-		LogLimit:"原木の破壊最大量", 
+		CutAllOn:"ON",
+		CutAllOff:"OFF",
+		NotEnoughDurability:"耐久値不足のため一括破壊しませんでした",
+		LogLimit:"原木の破壊最大量",
 		LeafLimit:"葉の破壊最大量"
 	}
 }
@@ -53,18 +53,18 @@ const Thread = java.lang.Thread;
 const ToggleButton = android.widget.ToggleButton;
 
 const GUIConst = {
-	Height: ctx().getWindowManager().getDefaultDisplay().getHeight(), 
-	Width: ctx().getWindowManager().getDefaultDisplay().getWidth(), 
-	density: ctx().getResources().getDisplayMetrics().density, 
+	Height: ctx().getWindowManager().getDefaultDisplay().getHeight(),
+	Width: ctx().getWindowManager().getDefaultDisplay().getWidth(),
+	density: ctx().getResources().getDisplayMetrics().density,
 	DecorView: ctx().getWindow().getDecorView()
 };
 
 //-- + Parameters + --//
 
 let Params={
-	RAND:[], 
+	RAND:[],
 	NED:{
-		FLAG:false, 
+		FLAG:false,
 		COUNT:0
 	}
 };
@@ -163,6 +163,14 @@ function getString(key){
 	return str===undefined?null:str;
 }
 
+function checkEnchant(type) {
+	let enc = Player.getEnchantments(Player.getSelectedSlotId());
+	for (let i = enc.length; i--;) {
+		if (enc[i]["type"] === type) return enc[i]["level"]+0;
+	}
+	return 0;
+}
+
 function setEnchantItem(ssid, enc, id, dm) {
 	Player.setInventorySlot(ssid, id, 1, dm);
 	if (enc.length == 0) return;
@@ -219,6 +227,22 @@ function hasUpper(pos, id, ddm){
 	return false;
 }
 
+function mathSaplingAndApple(cnt,fortuneLevel,isOak,isJungle){
+	if(fortuneLevel>3) fortuneLevel=3;
+	let prob=isJungle? Constants.Probability.JUNGLE[fortuneLevel] : Constants.Probability.NORMAL[fortuneLevel];
+	let damount={"sapling":0, "apple":0};
+	let rand=0;
+	let Aprob=Constants.Probability.APPLE[fortuneLevel];
+	for(let i=cnt;i--;){
+		rand=Params.RAND.shift();
+		if(rand<prob) damount["sapling"]++;
+		if(isOak){
+			if(rand<Aprob) damount["apple"]++;
+		}
+	}
+	return damount;
+}
+
 function destroyLog(x, y, z, id, ddm, logs){
 	let log;
 	Level.dropItem(x + 0.5, y, z + 0.5, 0.75, id, logs.length, ddm);
@@ -226,6 +250,95 @@ function destroyLog(x, y, z, id, ddm, logs){
 		log=logs[i];
 		Level.setTile(log["x"], log["y"], log["z"], 0, 0);
 	}
+}
+
+function destroyLeaves(leaves){
+	let leaf;
+	for(let i=leaves.length;i--;){
+		Thread.sleep(2);
+		leaf=leaves[i];
+		Level.setTile(leaf["x"],leaf["y"],leaf["z"],0,0);
+	}
+}
+
+function searchTypicalLeaf(logs,id,dmm){
+	let max={"x":0,"y":0,"z":0};
+	let leaves=[];
+	for(let i=logs.length;i--;){
+		let pos=logs[i];
+		if(pos["y"]>max["y"]) max=pos;
+	}
+	let dx,dy,dz;
+	for(let i=-2;i<3;i++){
+		dx=max["x"]+i;
+		for(let j=-2;j<2;j++){
+			dy=max["y"]+j;
+			for(let k=-2;k<3;k++){
+				dz=max["z"]+k;
+				if(i===0&&j===0&&k===0) continue;
+				if(Level.getTile(dx,dy,dz)!==id) continue;
+				if(Level.getData(dx,dy,dz)%4!==dmm) continue;
+				leaves.push({"x":dx, "y":dy, "z":dz});
+			}
+		}
+	}
+	return leaves;
+}
+
+function searchAndDestroyLeaves(x,y,z,id,ddm,logs,enc){
+	new Thread(new Runnable({
+		run: function(){
+			let isJungle=false,isOak=false,sapling=0,leaves,drops;
+			switch(id){
+				case 17:
+					sapling=ddm;
+					switch(ddm){
+						case 0://oak
+							isOak=true;
+							if(lgt<7){
+								leaves=searchTypicalLeaf(logs,18,dmm);
+							}else{
+								
+							}
+						break;
+						case 1://spruce
+							if(lgt<9){
+								
+							}else{
+								
+							}
+						break;
+						case 2://birch
+							leaves=searchTypicalLeaf(logs,18,dmm);
+						break;
+						case 3://jungle
+							isJungle=true;
+							if(lgt<13){
+								leaves=searchTypicalLeaf(logs,18,ddm);
+							}else{
+								
+							}
+						break;
+					}
+				break;
+				case 162:
+					sapling=ddm+4;
+					switch(ddm){
+						case 0://accasia
+							
+						break;
+						case 1://bigoak
+							isOak=true;
+						break;
+					}
+				break;
+			}
+			destroyLeaves(leaves);
+			drops=mathSaplingAndApple(leaves.length,checkEnchant(Enchantment.FORTUNE),isOak,isJungle);
+			if(drops["sapling"]!==0) Level.dropItem(x+0.5,y,z+0.5,0.75,6,drops["sapling"],sapling);
+			if(drops["apple"]!==0) Level.dropItem(x+0.5,y,z+0.5,0.75,260,drops["apple"],0);
+		}
+	})).start();
 }
 
 function searchLog(nArray, next, id, ddm, max){
@@ -620,7 +733,7 @@ function addChilds(obj){
 
 function defineViewId(View, ID) {
 	ViewIDs.push({
-		"View": View, 
+		"View": View,
 		"ID": ID
 	});
 }
@@ -658,12 +771,12 @@ let GUI = new function () {
 		this.View.setOnClickListener(new OnClickListener({
 			onClick:function (v) {
 				v.isChecked() ? (
-					clientMessage("[CutAll]" + getString("CutAllOn")), 
-					v.setChecked(true), 
+					clientMessage("[CutAll]" + getString("CutAllOn")),
+					v.setChecked(true),
 					v.setTextColor(Color.GREEN)
 				) : (
-					clientMessage("[CutAll]" + getString("CutAllOff")), 
-					v.setChecked(false), 
+					clientMessage("[CutAll]" + getString("CutAllOff")),
+					v.setChecked(false),
 					v.setTextColor(Color.WHITE)
 				);
 			}
@@ -745,7 +858,7 @@ let GUI = new function () {
 												}catch(e){
 													print(e);
 												}
-											}, 
+											},
 											onStopTrackingTouch: function(view){
 												try{
 													
@@ -782,7 +895,7 @@ let GUI = new function () {
 												}catch(e){
 													print(e);
 												}
-											}, 
+											},
 											onStopTrackingTouch: function(view){
 												try{
 													
