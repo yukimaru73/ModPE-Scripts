@@ -11,13 +11,13 @@ const Constants = {
 		JUNGLE: [1/40, 1/36, 1/32, 1/24],
 		APPLE: [1/200, 1/180, 1/160, 1/120]
 	}
-}
+};
 
 const values={
 	en_US:{
 		CutAllOn:"ON",
 		CutAllOff:"OFF",
-		NotEnoughDurability:"More tool durability has been required for destroying",
+		NotEnoughDurability:"More tool durability has been required",
 		LogLimit:"Amount limit of log",
 		LeafLimit:"Amount limit of leaf"
 	},
@@ -28,7 +28,7 @@ const values={
 		LogLimit:"原木の破壊最大量",
 		LeafLimit:"葉の破壊最大量"
 	}
-}
+};
 
 const ctx = ()=>com.mojang.minecraftpe.MainActivity.currentMainActivity.get();
 
@@ -63,6 +63,7 @@ const GUIConst = {
 
 let Params={
 	RAND:[],
+	BLOCKS:[],
 	NED:{
 		FLAG:false,
 		COUNT:0
@@ -99,16 +100,7 @@ function destroyBlock(x, y, z, s){
 	
 	let logs=searchLog([new createPos(x, y, z, hasUpper({"x":x, "y":y, "z":z}, bI, bD%4))], [new createTgt(x, y, z, 4)], bI, bD%4, Constants.LOGMAX);
 	
-	if(!isEnoughDurability(iD, iMD, logs.length)){
-		if(!Params.NED.FLAG){
-			Params.NED.FLAG=true;
-			if(Params.NED.COUNT===0){
-				Params.NED.COUNT=450;
-				clientMessage("[CutAll]" + getString("NotEnoughDurability"));
-			}
-		}
-		return;
-	}
+	if(checkDurability(iD, iMD, logs.length)) return;
 	
 	preventDefault();
 	destroyLog(x, y, z, bI, bD%4, logs);
@@ -206,6 +198,20 @@ function shiftCountOnModTick(){
 	ned.COUNT--;
 }
 
+function checkDurability(iD,iMD,lgt){
+	if(!isEnoughDurability(iD, iMD, lgt)){
+		if(!Params.NED.FLAG){
+			Params.NED.FLAG=true;
+			if(Params.NED.COUNT===0){
+				Params.NED.COUNT=450;
+				clientMessage("[CutAll]" + getString("NotEnoughDurability"));
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
 function createTgt(x, y, z, pos){
 	this.x=x;
 	this.y=y;
@@ -257,38 +263,18 @@ function destroyLeaves(leaves){
 	for(let i=leaves.length;i--;){
 		Thread.sleep(2);
 		leaf=leaves[i];
-		Level.setTile(leaf["x"],leaf["y"],leaf["z"],0,0);
+		Level.setTile(leaf["x"], leaf["y"], leaf["z"], 0, 0);
 	}
 }
 
-function searchTypicalLeaf(logs,id,dmm){
-	let max={"x":0,"y":0,"z":0};
-	let leaves=[];
-	for(let i=logs.length;i--;){
-		let pos=logs[i];
-		if(pos["y"]>max["y"]) max=pos;
-	}
-	let dx,dy,dz;
-	for(let i=-2;i<3;i++){
-		dx=max["x"]+i;
-		for(let j=-2;j<2;j++){
-			dy=max["y"]+j;
-			for(let k=-2;k<3;k++){
-				dz=max["z"]+k;
-				if(i===0&&j===0&&k===0) continue;
-				if(Level.getTile(dx,dy,dz)!==id) continue;
-				if(Level.getData(dx,dy,dz)%4!==dmm) continue;
-				leaves.push({"x":dx, "y":dy, "z":dz});
-			}
-		}
-	}
-	return leaves;
+function searchTypicalLeaf(logs,id,ddm){
+	
 }
 
 function searchAndDestroyLeaves(x,y,z,id,ddm,logs,enc){
 	new Thread(new Runnable({
 		run: function(){
-			let isJungle=false,isOak=false,sapling=0,leaves,drops;
+			let isJungle=false, isOak=false, sapling=0, leaves, drops;
 			switch(id){
 				case 17:
 					sapling=ddm;
@@ -334,9 +320,9 @@ function searchAndDestroyLeaves(x,y,z,id,ddm,logs,enc){
 				break;
 			}
 			destroyLeaves(leaves);
-			drops=mathSaplingAndApple(leaves.length,checkEnchant(Enchantment.FORTUNE),isOak,isJungle);
-			if(drops["sapling"]!==0) Level.dropItem(x+0.5,y,z+0.5,0.75,6,drops["sapling"],sapling);
-			if(drops["apple"]!==0) Level.dropItem(x+0.5,y,z+0.5,0.75,260,drops["apple"],0);
+			drops=mathSaplingAndApple(leaves.length, checkEnchant(Enchantment.FORTUNE), isOak,isJungle);
+			if(drops["sapling"]!==0) Level.dropItem(x+0.5, y, z+0.5, 0.75, 6, drops["sapling"], sapling);
+			if(drops["apple"]!==0) Level.dropItem(x+0.5, y , z+0.5, 0.75, 260, drops["apple"], 0);
 		}
 	})).start();
 }
@@ -684,6 +670,26 @@ function searchLog(nArray, next, id, ddm, max){
 	return searchLog(nArray, tgt, id, ddm, max);
 }
 
+const MCPETool=new (function(){
+	
+	this.CutAll=new (function(){
+		
+	})();
+	
+	this.DigAll=new (function(){
+		
+	})();
+	
+	this.MineAll=new (function(){
+		
+	})();
+	
+	this.Common=new (function(){
+		
+	})();
+	
+})();
+
 //-- + GUI Functions + --//
 
 function showGUI(Popup, Gravity, x, y) {
@@ -745,7 +751,6 @@ function findViewById(ID) {
 	}
 	return null;
 }
-
 
 //-- + GUI Layouts + --//
 
